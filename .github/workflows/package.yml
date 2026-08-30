@@ -1,0 +1,135 @@
+name: Build and publish packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CODER_RELEASE: "true"
+  CODER_BASE_IMAGE_TAG: ghcr.io/coder/coder-base:latest
+  DOCKER_CLI_EXPERIMENTAL: "enabled"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch git tags
+        run: git fetch --tags --force
+
+      - name: Set up mise tools
+        uses: ./.github/actions/setup-mise
+        with:
+          install-args: "go node pnpm helm protoc protoc-gen-go"
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh zstd zip
+          mise install --locked \
+            go:github.com/goreleaser/nfpm/v2/cmd/nfpm \
+            go:storj.io/drpc/cmd/protoc-gen-go-drpc \
+            go:github.com/coder/sqlc/cmd/sqlc
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure image registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "CODER_IMAGE_BASE=ghcr.io/${owner}/coder" >> "$GITHUB_ENV"
+          echo "HELM_REGISTRY_OWNER=${owner}" >> "$GITHUB_ENV"
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "CODER_FORCE_VERSION=${version}" >> "$GITHUB_ENV"
+          echo "Building Coder ${version}"
+
+      - name: Build binaries, archives, packages, and charts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          make gen/mark-fresh
+          make -j2 release \
+            "build/provisioner_helm_${VERSION}.tgz" \
+            "build/ai-gateway_helm_${VERSION}.tgz" \
+            "build/coder_docs_${VERSION}.tgz"
+
+      - name: Publish multi-architecture Coder image
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          make -j2 \
+            "push/build/coder_${VERSION}_linux_amd64.tag" \
+            "push/build/coder_${VERSION}_linux_arm64.tag" \
+            "push/build/coder_${VERSION}_linux_armv7.tag" \
+            "push/build/coder_${VERSION}_linux.tag"
+
+      - name: Publish Helm charts to GHCR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for chart in coder provisioner ai-gateway; do
+            helm push "build/${chart}_helm_${VERSION}.tgz" "oci://ghcr.io/${HELM_REGISTRY_OWNER}/chart"
+          done
+
+      - name: Publish tagged release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets=()
+          while IFS= read -r asset; do
+            assets+=("${asset}")
+          done < <(
+            find build -maxdepth 1 -type f \
+              \( -name "*.apk" -o -name "*.deb" -o -name "*.rpm" \
+              -o -name "*.tar.gz" -o -name "*.zip" -o -name "*.tgz" \
+              -o -name "*_installer.exe" \) -print | sort
+          )
+          if [[ "${#assets[@]}" -eq 0 ]]; then
+            echo "No release assets were produced."
+            exit 1
+          fi
+
+          checksum_file="build/coder_${{ steps.version.outputs.version }}_checksums.txt"
+          sha256sum "${assets[@]}" > "${checksum_file}"
+          assets+=("${checksum_file}")
+
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --generate-notes \
+            "${assets[@]}"
