@@ -302,6 +302,9 @@ type GenerateCompactionOptions struct {
 	// ProviderOptions carry summary-model call options such as an
 	// override's reasoning effort.
 	ProviderOptions fantasy.ProviderOptions
+	// ToolDefinitions is copied from the parent generation request so the
+	// summary call uses the exact same ordered definitions.
+	ToolDefinitions []fantasy.Tool
 
 	PublishMessagePart func(codersdk.ChatMessageRole, codersdk.ChatMessagePart)
 }
@@ -388,7 +391,7 @@ func GenerateAssistant(ctx context.Context, opts GenerateAssistantOptions) (Assi
 
 	call := fantasy.Call{
 		Prompt:           prepared,
-		Tools:            buildToolDefinitions(opts.Tools, opts.ActiveTools, opts.ProviderTools),
+		Tools:            BuildToolDefinitions(opts.Tools, opts.ActiveTools, opts.ProviderTools),
 		MaxOutputTokens:  opts.ModelConfig.MaxOutputTokens,
 		Temperature:      opts.ModelConfig.Temperature,
 		TopP:             opts.ModelConfig.TopP,
@@ -1439,12 +1442,12 @@ func isToolActive(name string, activeTools []string) bool {
 	return len(activeTools) == 0 || slices.Contains(activeTools, name)
 }
 
-// buildToolDefinitions converts AgentTool definitions into the
+// BuildToolDefinitions converts AgentTool definitions into the
 // fantasy.Tool slice expected by fantasy.Call. When activeTools
 // is non-empty, only function tools whose name appears in the
 // list are included. Provider tool definitions are always
 // appended unconditionally.
-func buildToolDefinitions(tools []fantasy.AgentTool, activeTools []string, providerTools []ProviderTool) []fantasy.Tool {
+func BuildToolDefinitions(tools []fantasy.AgentTool, activeTools []string, providerTools []ProviderTool) []fantasy.Tool {
 	prepared := make([]fantasy.Tool, 0, len(tools)+len(providerTools))
 	for _, tool := range tools {
 		info := tool.Info()

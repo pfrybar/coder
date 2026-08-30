@@ -99,6 +99,9 @@ type CompactionOptions struct {
 	ResolvedModel    string
 	ModelConfigID    uuid.UUID
 	ProviderOptions  fantasy.ProviderOptions
+	// ToolDefinitions is copied from the parent generation request so the
+	// summary call uses the exact same ordered definitions.
+	ToolDefinitions []fantasy.Tool
 
 	// Force skips the threshold gate (including the threshold=100
 	// disable and the zero-usage early return). Set for manual,
@@ -221,6 +224,7 @@ func normalizedCompactionGenerateConfig(opts GenerateCompactionOptions) (Compact
 		ResolvedModel:       opts.ResolvedModel,
 		ModelConfigID:       opts.ModelConfigID,
 		ProviderOptions:     opts.ProviderOptions,
+		ToolDefinitions:     opts.ToolDefinitions,
 		Force:               opts.Force,
 		Source:              opts.Source,
 		ToolCallID:          opts.ToolCallID,
@@ -442,6 +446,7 @@ func generateCompactionSummary(
 
 	response, err := model.Generate(summaryCtx, fantasy.Call{
 		Prompt:          summaryPrompt,
+		Tools:           options.ToolDefinitions,
 		ToolChoice:      &toolChoice,
 		ProviderOptions: options.ProviderOptions,
 	})

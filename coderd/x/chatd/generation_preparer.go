@@ -550,6 +550,7 @@ func (server *Server) prepareGeneration(
 		activeToolNames = allowedExploreToolNames(tools)
 	}
 
+	toolDefinitions := chatloop.BuildToolDefinitions(tools, activeToolNames, providerTools)
 	toolNameToConfigID := make(map[string]uuid.UUID)
 	for _, t := range tools {
 		if mcpTool, ok := t.(mcpclient.MCPToolIdentifier); ok {
@@ -616,6 +617,7 @@ func (server *Server) prepareGeneration(
 		ResolvedModel:        debugModel,
 		ModelConfigID:        modelConfig.ID,
 		StepUsage:            compactionStepUsage,
+		ToolDefinitions:      toolDefinitions,
 	}
 
 	// workspaceCtx.currentChatSnapshot may carry a freshly persisted

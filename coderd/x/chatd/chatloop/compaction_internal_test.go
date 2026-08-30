@@ -233,6 +233,44 @@ func TestGenerateCompactionSummary_PanicFinalizesAsError(t *testing.T) {
 	}
 }
 
+func TestGenerateCompactionSummaryUsesToolDefinitions(t *testing.T) {
+	t.Parallel()
+
+	toolDefinitions := []fantasy.Tool{
+		fantasy.FunctionTool{
+			Name:        "read_file",
+			Description: "Read a file.",
+			InputSchema: map[string]any{"type": "object"},
+		},
+		fantasy.ProviderDefinedTool{ID: "web_search", Name: "web_search"},
+	}
+	messages := []fantasy.Message{textMessage(fantasy.MessageRoleUser, "hello")}
+	originalMessages := append([]fantasy.Message(nil), messages...)
+	var got fantasy.Call
+	model := &chattest.FakeModel{
+		ProviderName: "fake",
+		ModelName:    "fake-model",
+		GenerateFn: func(_ context.Context, call fantasy.Call) (*fantasy.Response, error) {
+			got = call
+			return &fantasy.Response{Content: []fantasy.Content{fantasy.TextContent{Text: "summary"}}}, nil
+		},
+	}
+
+	toolChoice := fantasy.ToolChoiceNone
+	summary, err := generateCompactionSummary(context.Background(), model, messages, CompactionOptions{
+		SummaryPrompt:   "summarize",
+		ProviderOptions: nil,
+		ToolDefinitions: toolDefinitions,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "summary", summary)
+	require.Equal(t, toolDefinitions, got.Tools)
+	require.NotNil(t, got.ToolChoice)
+	require.Equal(t, toolChoice, *got.ToolChoice)
+	require.Len(t, got.Prompt, 2)
+	require.Equal(t, originalMessages, messages)
+}
+
 func TestGenerateCompactionSummary_UsesCallerContext(t *testing.T) {
 	t.Parallel()
 
