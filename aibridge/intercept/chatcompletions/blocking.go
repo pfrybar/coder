@@ -96,7 +96,7 @@ func (i *BlockingInterception) ProcessRequest(w http.ResponseWriter, r *http.Req
 		// TODO add outer loop span (https://github.com/coder/aibridge/issues/67)
 
 		var opts []option.RequestOption
-		opts = append(opts, option.WithRequestTimeout(time.Second*600))
+		opts = append(opts, option.WithRequestTimeout(time.Second*1800))
 
 		// TODO(ssncferreira): inject actor headers directly in the client-header
 		//   middleware instead of using SDK options.
