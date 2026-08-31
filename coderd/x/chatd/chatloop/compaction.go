@@ -98,6 +98,15 @@ type CompactionOptions struct {
 	ResolvedProvider string
 	ResolvedModel    string
 	ModelConfigID    uuid.UUID
+
+	// Call-level options are copied from the selected summary model's
+	// generation configuration. ProviderOptions carries provider-specific
+	// options such as reasoning effort.
+	Temperature      *float64
+	TopP             *float64
+	TopK             *int64
+	PresencePenalty  *float64
+	FrequencyPenalty *float64
 	ProviderOptions  fantasy.ProviderOptions
 	// ToolDefinitions is copied from the parent generation request so the
 	// summary call uses the exact same ordered definitions.
@@ -223,6 +232,11 @@ func normalizedCompactionGenerateConfig(opts GenerateCompactionOptions) (Compact
 		ResolvedProvider:    opts.ResolvedProvider,
 		ResolvedModel:       opts.ResolvedModel,
 		ModelConfigID:       opts.ModelConfigID,
+		Temperature:         opts.Temperature,
+		TopP:                opts.TopP,
+		TopK:                opts.TopK,
+		PresencePenalty:     opts.PresencePenalty,
+		FrequencyPenalty:    opts.FrequencyPenalty,
 		ProviderOptions:     opts.ProviderOptions,
 		ToolDefinitions:     opts.ToolDefinitions,
 		Force:               opts.Force,
@@ -445,10 +459,15 @@ func generateCompactionSummary(
 	}()
 
 	response, err := model.Generate(summaryCtx, fantasy.Call{
-		Prompt:          summaryPrompt,
-		Tools:           options.ToolDefinitions,
-		ToolChoice:      &toolChoice,
-		ProviderOptions: options.ProviderOptions,
+		Prompt:           summaryPrompt,
+		Temperature:      options.Temperature,
+		TopP:             options.TopP,
+		TopK:             options.TopK,
+		PresencePenalty:  options.PresencePenalty,
+		FrequencyPenalty: options.FrequencyPenalty,
+		Tools:            options.ToolDefinitions,
+		ToolChoice:       &toolChoice,
+		ProviderOptions:  options.ProviderOptions,
 	})
 	if err != nil {
 		return "", xerrors.Errorf("generate summary text: %w", err)

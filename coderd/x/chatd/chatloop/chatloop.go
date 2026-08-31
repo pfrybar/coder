@@ -299,9 +299,15 @@ type GenerateCompactionOptions struct {
 	ResolvedModel    string
 	ModelConfigID    uuid.UUID
 
-	// ProviderOptions carry summary-model call options such as an
-	// override's reasoning effort.
-	ProviderOptions fantasy.ProviderOptions
+	// Call-level options are copied from the selected summary model's
+	// generation configuration. ProviderOptions carries provider-specific
+	// options such as reasoning effort.
+	Temperature      *float64
+	TopP             *float64
+	TopK             *int64
+	PresencePenalty  *float64
+	FrequencyPenalty *float64
+	ProviderOptions  fantasy.ProviderOptions
 	// ToolDefinitions is copied from the parent generation request so the
 	// summary call uses the exact same ordered definitions.
 	ToolDefinitions []fantasy.Tool

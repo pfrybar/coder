@@ -42,6 +42,7 @@ type compactionModelOverride struct {
 	// providerOptions include the override's reasoning effort for the
 	// summary call.
 	providerOptions fantasy.ProviderOptions
+	callConfig      codersdk.ChatModelCallConfig
 }
 
 // resolvedCompactionOverride is the compaction override resolved at
@@ -147,34 +148,54 @@ func (p *Server) buildCompactionOverrideModel(
 			err,
 		)
 	}
-	providerOptions, err := compactionOverrideProviderOptions(model, modelConfig)
+	callConfig, err := compactionOverrideCallConfig(modelConfig)
 	if err != nil {
 		return compactionModelOverride{}, err
 	}
+	providerOptions := chatprovider.ProviderOptionsFromChatModelConfig(
+		model,
+		callConfig.ProviderOptions,
+	)
+	reasoningEffort := chatprovider.ResolveReasoningEffort(
+		nil,
+		callConfig.ReasoningEffort,
+	)
+	providerOptions = chatprovider.ApplyReasoningEffort(model, providerOptions, reasoningEffort)
 	return compactionModelOverride{
 		modelConfig:      modelConfig,
 		model:            model,
 		resolvedProvider: resolvedProvider,
 		resolvedModel:    resolvedModel,
 		providerOptions:  providerOptions,
+		callConfig:       callConfig,
 	}, nil
 }
 
 // compactionOverrideProviderOptions converts the override config's call
 // options, including the admin-resolved reasoning effort, into provider
 // options for the summary call.
-func compactionOverrideProviderOptions(
-	model fantasy.LanguageModel,
+func compactionOverrideCallConfig(
 	modelConfig database.ChatModelConfig,
-) (fantasy.ProviderOptions, error) {
+) (codersdk.ChatModelCallConfig, error) {
 	callConfig := codersdk.ChatModelCallConfig{}
 	if len(modelConfig.Options) > 0 {
 		if err := json.Unmarshal(modelConfig.Options, &callConfig); err != nil {
-			return nil, xerrors.Errorf(
+			return codersdk.ChatModelCallConfig{}, xerrors.Errorf(
 				"parse compaction model override call config: %w",
 				err,
 			)
 		}
+	}
+	return callConfig, nil
+}
+
+func compactionOverrideProviderOptions(
+	model fantasy.LanguageModel,
+	modelConfig database.ChatModelConfig,
+) (fantasy.ProviderOptions, error) {
+	callConfig, err := compactionOverrideCallConfig(modelConfig)
+	if err != nil {
+		return nil, err
 	}
 	providerOptions := chatprovider.ProviderOptionsFromChatModelConfig(
 		model,

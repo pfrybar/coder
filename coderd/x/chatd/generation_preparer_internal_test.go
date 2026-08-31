@@ -158,6 +158,12 @@ func TestPrepareGenerationClampsRequestedReasoningEffortToMax(t *testing.T) {
 	require.NotNil(t, providerOptions.ReasoningEffort)
 	require.Equal(t, fantasyopenai.ReasoningEffortMedium, *providerOptions.ReasoningEffort)
 	require.NotNil(t, prepared.Compaction.Options.ToolDefinitions)
+	require.Equal(t, prepared.ProviderOptions, prepared.Compaction.Options.ProviderOptions)
+	require.Equal(t, prepared.ModelConfig.Temperature, prepared.Compaction.Options.Temperature)
+	require.Equal(t, prepared.ModelConfig.TopP, prepared.Compaction.Options.TopP)
+	require.Equal(t, prepared.ModelConfig.TopK, prepared.Compaction.Options.TopK)
+	require.Equal(t, prepared.ModelConfig.PresencePenalty, prepared.Compaction.Options.PresencePenalty)
+	require.Equal(t, prepared.ModelConfig.FrequencyPenalty, prepared.Compaction.Options.FrequencyPenalty)
 	require.Equal(t,
 		chatloop.BuildToolDefinitions(prepared.Tools, prepared.ActiveTools, prepared.ProviderTools),
 		prepared.Compaction.Options.ToolDefinitions,

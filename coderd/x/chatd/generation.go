@@ -741,6 +741,11 @@ func (s *taskStarter) generateCompaction(
 		compactionOpts.ResolvedProvider = overrideModel.resolvedProvider
 		compactionOpts.ResolvedModel = overrideModel.resolvedModel
 		compactionOpts.ModelConfigID = overrideModel.modelConfig.ID
+		compactionOpts.Temperature = overrideModel.callConfig.Temperature
+		compactionOpts.TopP = overrideModel.callConfig.TopP
+		compactionOpts.TopK = overrideModel.callConfig.TopK
+		compactionOpts.PresencePenalty = overrideModel.callConfig.PresencePenalty
+		compactionOpts.FrequencyPenalty = overrideModel.callConfig.FrequencyPenalty
 		compactionOpts.ProviderOptions = overrideModel.providerOptions
 		compactionOpts.Messages = sanitizeCompactionPrompt(
 			ctx,

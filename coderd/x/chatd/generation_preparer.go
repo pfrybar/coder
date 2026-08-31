@@ -616,6 +616,12 @@ func (server *Server) prepareGeneration(
 		ResolvedProvider:     resolvedProvider,
 		ResolvedModel:        debugModel,
 		ModelConfigID:        modelConfig.ID,
+		Temperature:          callConfig.Temperature,
+		TopP:                 callConfig.TopP,
+		TopK:                 callConfig.TopK,
+		PresencePenalty:      callConfig.PresencePenalty,
+		FrequencyPenalty:     callConfig.FrequencyPenalty,
+		ProviderOptions:      providerOptions,
 		StepUsage:            compactionStepUsage,
 		ToolDefinitions:      toolDefinitions,
 	}
